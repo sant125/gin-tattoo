@@ -1,0 +1,66 @@
+deploymentMode: SingleBinary
+
+loki:
+  commonConfig:
+    replication_factor: 1
+
+  auth_enabled: false
+
+  storage:
+    type: s3
+    s3:
+      region: us-east-1
+      bucketnames: projetin-loki-chunks
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+  limits_config:
+    retention_period: 30d
+    ingestion_rate_mb: 8
+    ingestion_burst_size_mb: 16
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: "${LOKI_ROLE_ARN}"
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector:
+    capacity-type: ondemand
+  tolerations:
+    - key: workload
+      operator: Equal
+      value: ondemand
+      effect: NoSchedule
+  persistence:
+    enabled: true
+    storageClass: gp3
+    size: 10Gi
+
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+gateway:
+  enabled: false
+
+minio:
+  enabled: false
