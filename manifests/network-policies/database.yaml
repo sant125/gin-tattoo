@@ -1,0 +1,53 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: database
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres
+  namespace: database
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: tattoo-db
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: prod
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: homolog
+      ports:
+        - port: 5432
+    # replicação interna entre instâncias CNPG
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: tattoo-db
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: tattoo-db
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+    # backup S3
+    - ports:
+        - port: 443
