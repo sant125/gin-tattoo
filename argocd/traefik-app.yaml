@@ -1,0 +1,69 @@
+## Traefik — NLB internet-facing, TLS terminado no Traefik via cert-manager
+## wave -1: precisa estar antes dos Ingress resources das apps
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://helm.traefik.io/traefik
+    chart: traefik
+    targetRevision: "28.x"
+    helm:
+      releaseName: traefik
+      values: |
+        service:
+          type: LoadBalancer
+          annotations:
+            service.beta.kubernetes.io/aws-load-balancer-type: nlb
+            service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+
+        ingressClass:
+          enabled: true
+          isDefaultClass: true
+
+        providers:
+          kubernetesCRD:
+            enabled: true
+          kubernetesIngress:
+            enabled: true
+
+        metrics:
+          prometheus:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              namespace: observability
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+        nodeSelector:
+          capacity-type: ondemand
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: ondemand
+            effect: NoSchedule
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

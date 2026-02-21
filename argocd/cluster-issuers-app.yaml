@@ -1,0 +1,30 @@
+## ClusterIssuer — Let's Encrypt staging + prod via Route53 DNS01
+## wave -1: cert-manager CRDs precisam existir antes
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-issuers
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sant125/aws-devops.git
+    targetRevision: HEAD
+    path: manifests/cert-manager
+    directory:
+      include: "cluster-issuers.yaml"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
