@@ -1,0 +1,94 @@
+vars: {
+  d2-config: {
+    theme-id: 201
+    layout-engine: elk
+  }
+}
+
+direction: right
+
+feature: "feature/* — CI only" {
+  style: {
+    border-radius: 16
+    stroke-width: 2
+  }
+
+  f_gh: GitHub {
+    shape: hexagon
+    style: { fill: "#24292e"; stroke: "#6e7681"; font-color: white; bold: true }
+  }
+  f_ci: "lint · test · scan\nSonarCloud + QG" {
+    shape: rectangle
+    style: { fill: "#2088ff"; stroke: "#388bfd"; font-color: white; border-radius: 10; bold: true }
+  }
+  f_art: Artifacts {
+    shape: cylinder
+    style: { fill: "#FF9900"; stroke: "#ec7211"; font-color: white; bold: true }
+  }
+
+  f_gh -> f_ci -> f_art
+}
+
+developer: "developer — CI + homolog + ZAP" {
+  style: {
+    border-radius: 16
+    stroke-width: 2
+  }
+
+  d_gh: GitHub {
+    shape: hexagon
+    style: { fill: "#24292e"; stroke: "#6e7681"; font-color: white; bold: true }
+  }
+  d_ci: "lint · test · scan\nSonarCloud + QG" {
+    shape: rectangle
+    style: { fill: "#2088ff"; stroke: "#388bfd"; font-color: white; border-radius: 10; bold: true }
+  }
+  d_ecr: "build & push\ndev-{sha}" {
+    shape: cylinder
+    style: { fill: "#FF9900"; stroke: "#ec7211"; font-color: white; bold: true }
+  }
+  d_argo: "sync homolog" {
+    shape: hexagon
+    style: { fill: "#ef7b4d"; stroke: "#e96132"; font-color: white; bold: true }
+  }
+  d_zap: "OWASP ZAP" {
+    shape: rectangle
+    style: { fill: "#6f42c1"; stroke: "#5a32a3"; font-color: white; border-radius: 10; bold: true }
+  }
+  d_art: Artifacts {
+    shape: cylinder
+    style: { fill: "#FF9900"; stroke: "#ec7211"; font-color: white; bold: true }
+  }
+
+  d_gh -> d_ci -> d_ecr -> d_argo -> d_zap -> d_art
+}
+
+main: "main — CI + prod" {
+  style: {
+    border-radius: 16
+    stroke-width: 2
+  }
+
+  m_gh: GitHub {
+    shape: hexagon
+    style: { fill: "#24292e"; stroke: "#6e7681"; font-color: white; bold: true }
+  }
+  m_ci: "lint · test · scan\nSonarCloud + QG" {
+    shape: rectangle
+    style: { fill: "#2088ff"; stroke: "#388bfd"; font-color: white; border-radius: 10; bold: true }
+  }
+  m_ecr: "build & push\n{sha}" {
+    shape: cylinder
+    style: { fill: "#FF9900"; stroke: "#ec7211"; font-color: white; bold: true }
+  }
+  m_argo: "sync prod" {
+    shape: hexagon
+    style: { fill: "#ef7b4d"; stroke: "#e96132"; font-color: white; bold: true }
+  }
+  m_art: Artifacts {
+    shape: cylinder
+    style: { fill: "#FF9900"; stroke: "#ec7211"; font-color: white; bold: true }
+  }
+
+  m_gh -> m_ci -> m_ecr -> m_argo -> m_art
+}

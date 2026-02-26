@@ -1,0 +1,176 @@
+vars: {
+  d2-config: {
+    theme-id: 201
+    layout-engine: elk
+  }
+}
+
+direction: down
+
+github: GitHub {
+  shape: hexagon
+  style: {
+    fill: "#24292e"
+    stroke: "#6e7681"
+    font-color: white
+    font-size: 18
+    bold: true
+  }
+}
+
+actions: GitHub Actions\nOIDC → AWS {
+  shape: rectangle
+  style: {
+    fill: "#2088ff"
+    stroke: "#388bfd"
+    font-color: white
+    border-radius: 12
+    font-size: 16
+    bold: true
+  }
+}
+
+ecr: ECR {
+  shape: cylinder
+  style: {
+    fill: "#FF9900"
+    stroke: "#ec7211"
+    font-color: white
+    font-size: 16
+    bold: true
+  }
+}
+
+s3: S3 {
+  shape: cylinder
+  style: {
+    fill: "#FF9900"
+    stroke: "#ec7211"
+    font-color: white
+    font-size: 16
+    bold: true
+  }
+}
+
+eks: EKS 1.31 — Karpenter (Spot + OnDemand) {
+  style: {
+    border-radius: 20
+    stroke-width: 2
+    font-size: 18
+    bold: true
+  }
+
+  nlb: NLB {
+    shape: diamond
+    style: {
+      fill: "#FF9900"
+      stroke: "#ec7211"
+      font-color: white
+      font-size: 16
+      bold: true
+    }
+  }
+
+  argocd: ArgoCD {
+    shape: hexagon
+    style: {
+      fill: "#ef7b4d"
+      stroke: "#e96132"
+      font-color: white
+      font-size: 16
+      bold: true
+    }
+  }
+
+  app: gin-tattoo\nprod · homolog {
+    shape: rectangle
+    style: {
+      fill: "#00acd7"
+      stroke: "#0090b5"
+      font-color: white
+      border-radius: 12
+      font-size: 16
+      bold: true
+    }
+  }
+
+  db: database {
+    style: {
+      border-radius: 16
+      stroke-width: 2
+      font-size: 16
+    }
+    pg: CloudNativePG\n3× HA {
+      shape: cylinder
+      style: {
+        fill: "#336791"
+        stroke: "#2c5a7e"
+        font-color: white
+        font-size: 16
+        bold: true
+      }
+    }
+  }
+
+  obs: observability {
+    style: {
+      border-radius: 16
+      stroke-width: 2
+      font-size: 16
+    }
+
+    prom: Prometheus {
+      shape: hexagon
+      style: {
+        fill: "#e6522c"
+        stroke: "#c93d18"
+        font-color: white
+        font-size: 16
+        bold: true
+      }
+    }
+
+    loki: Loki {
+      shape: hexagon
+      style: {
+        fill: "#f46800"
+        stroke: "#d45c00"
+        font-color: white
+        font-size: 16
+        bold: true
+      }
+    }
+
+    grafana: Grafana {
+      shape: hexagon
+      style: {
+        fill: "#f46800"
+        stroke: "#d45c00"
+        font-color: white
+        font-size: 16
+        bold: true
+      }
+    }
+
+    prom -> grafana
+    loki -> grafana
+  }
+}
+
+github -> actions: trigger
+github -> eks.argocd: gitops sync
+actions -> ecr: build & push · OIDC
+actions -> github: manifest update {
+  style.stroke-dash: 5
+}
+
+ecr -> eks.app: {style.stroke-dash: 3}
+eks.argocd -> eks.app
+eks.nlb -> eks.app: HTTPS
+
+eks.app -> eks.db.pg
+eks.db.pg -> s3: backup {style.stroke-dash: 4}
+
+eks.app -> eks.obs.prom: metrics {style.stroke-dash: 3}
+eks.app -> eks.obs.loki: logs {style.stroke-dash: 3}
+eks.obs.loki -> s3: chunks {style.stroke-dash: 4}
