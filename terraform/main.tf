@@ -270,8 +270,24 @@ module "eks" {
   # Endpoint público para acesso via kubectl
   cluster_endpoint_public_access = true
 
-  # Sem node group gerenciado — Karpenter cuida dos nós
-  eks_managed_node_groups = {}
+  eks_managed_node_groups = {
+    system = {
+      instance_types = ["t3.small"]
+      min_size       = 1
+      max_size       = 2
+      desired_size   = 1
+
+      taints = [{
+        key    = "CriticalAddonsOnly"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      }]
+
+      labels = {
+        role = "system"
+      }
+    }
+  }
 
   # Add-ons essenciais
   cluster_addons = {
