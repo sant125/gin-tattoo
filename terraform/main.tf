@@ -143,6 +143,35 @@ resource "aws_iam_role_policy" "loki" {
   })
 }
 
+# ─── IAM role IRSA para EBS CSI Driver ───────────────────────────────────────
+resource "aws_iam_role" "ebs_csi" {
+  name = "${local.name_prefix}-ebs-csi"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = module.eks.oidc_provider_arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  role       = aws_iam_role.ebs_csi.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
 # ─── OIDC + IAM para GitHub Actions (ECR push sem credenciais estáticas) ─────
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
@@ -272,6 +301,9 @@ module "eks" {
   # Endpoint público para acesso via kubectl
   cluster_endpoint_public_access = true
 
+  # Garante acesso admin ao criador do cluster (root/IAM user que rodou o apply)
+  bootstrap_cluster_creator_admin_permissions = true
+
   eks_managed_node_groups = {
     system = {
       instance_types = ["t3.small"]
@@ -293,10 +325,13 @@ module "eks" {
 
   # Add-ons essenciais
   cluster_addons = {
-    coredns                = { most_recent = true }
-    kube-proxy             = { most_recent = true }
-    vpc-cni                = { most_recent = true }
-    aws-ebs-csi-driver     = { most_recent = true }
+    coredns    = { most_recent = true }
+    kube-proxy = { most_recent = true }
+    vpc-cni    = { most_recent = true }
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = aws_iam_role.ebs_csi.arn
+    }
   }
 
   # IRSA habilitado para Karpenter, ALB Controller, etc.
