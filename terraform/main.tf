@@ -350,6 +350,9 @@ module "karpenter" {
   cluster_name           = module.eks.cluster_name
   irsa_oidc_provider_arn = module.eks.oidc_provider_arn
 
+  enable_irsa             = true
+  enable_pod_identity     = false
+
   # Reutiliza a role de nó criada acima
   create_node_iam_role = false
   node_iam_role_arn    = aws_iam_role.karpenter_node.arn
