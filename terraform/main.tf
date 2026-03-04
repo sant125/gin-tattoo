@@ -303,13 +303,6 @@ module "eks" {
   enable_irsa = true
 
   # Access entry para que os nós do Karpenter consigam se registrar
-  access_entries = {
-    karpenter_node = {
-      principal_arn = aws_iam_role.karpenter_node.arn
-      type          = "EC2_LINUX"
-    }
-  }
-
   cluster_upgrade_policy = {
     support_type = "STANDARD"
   }
