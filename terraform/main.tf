@@ -18,6 +18,8 @@ module "vpc" {
   azs            = var.availability_zones
   public_subnets = [for i, az in var.availability_zones : cidrsubnet(var.vpc_cidr, 8, i)]
 
+  map_public_ip_on_launch = true
+
   enable_dns_hostnames = true
   enable_dns_support   = true
 
@@ -303,9 +305,8 @@ module "eks" {
   # Access entry para que os nós do Karpenter consigam se registrar
   access_entries = {
     karpenter_node = {
-      kubernetes_groups = []
-      principal_arn     = aws_iam_role.karpenter_node.arn
-      type              = "EC2_LINUX"
+      principal_arn = aws_iam_role.karpenter_node.arn
+      type          = "EC2_LINUX"
     }
   }
 
