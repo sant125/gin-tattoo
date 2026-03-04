@@ -301,9 +301,6 @@ module "eks" {
   # Endpoint público para acesso via kubectl
   cluster_endpoint_public_access = true
 
-  # Garante acesso admin ao criador do cluster (root/IAM user que rodou o apply)
-  bootstrap_cluster_creator_admin_permissions = true
-
   eks_managed_node_groups = {
     system = {
       instance_types = ["t3.small"]
