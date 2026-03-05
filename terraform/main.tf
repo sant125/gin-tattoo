@@ -373,6 +373,21 @@ module "karpenter" {
   tags = local.tags
 }
 
+# ─── WAIT: node do sistema pronto antes dos addons ───────────────────────────
+resource "null_resource" "wait_for_system_node" {
+  depends_on = [module.eks.eks_managed_node_groups]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region} --kubeconfig /tmp/kubeconfig-projetin
+      kubectl --kubeconfig /tmp/kubeconfig-projetin wait node \
+        --for=condition=Ready \
+        --all \
+        --timeout=300s
+    EOT
+  }
+}
+
 # ─── KARPENTER CONTROLLER (Helm) ─────────────────────────────────────────────
 resource "helm_release" "karpenter" {
   namespace        = "karpenter"
@@ -404,5 +419,5 @@ resource "helm_release" "karpenter" {
     })
   ]
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, null_resource.wait_for_system_node]
 }
