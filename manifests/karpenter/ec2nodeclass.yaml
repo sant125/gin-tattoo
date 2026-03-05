@@ -13,7 +13,7 @@ spec:
   # Subnets onde os nós serão provisionados (descoberta por tag)
   subnetSelectorTerms:
     - tags:
-        kubernetes.io/cluster/projetin: "owned"
+        kubernetes.io/cluster/projetin-cluster: "owned"
 
   # Security groups do cluster (descoberta por tag)
   securityGroupSelectorTerms:
