@@ -368,7 +368,7 @@ resource "helm_release" "karpenter" {
   name       = "karpenter"
   repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter"
-  version    = "1.1.1"
+  version    = "1.3.0"
 
   values = [
     jsonencode({
