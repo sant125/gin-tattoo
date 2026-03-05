@@ -339,6 +339,19 @@ module "eks" {
     support_type = "STANDARD"
   }
 
+  access_entries = {
+    admin = {
+      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      type          = "STANDARD"
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
+
   tags = local.tags
 }
 
