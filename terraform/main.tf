@@ -25,8 +25,8 @@ module "vpc" {
 
   # Tags exigidas pelo EKS/Karpenter para descoberta de subnets
   public_subnet_tags = {
-    "kubernetes.io/role/elb"                    = "1"
-    "kubernetes.io/cluster/${local.name_prefix}" = "owned"
+    "kubernetes.io/role/elb"                             = "1"
+    "kubernetes.io/cluster/${local.name_prefix}-cluster" = "owned"
   }
 
   tags = local.tags
