@@ -29,7 +29,7 @@ loki:
 
 serviceAccount:
   annotations:
-    eks.amazonaws.com/role-arn: "${LOKI_ROLE_ARN}"
+    eks.amazonaws.com/role-arn: "arn:aws:iam::091855124125:role/projetin-loki"
 
 singleBinary:
   replicas: 1
