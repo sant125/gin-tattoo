@@ -18,7 +18,7 @@ spec:
         valueFiles:
           - $values/manifests/observability/values.yaml
 
-    - repoURL: https://github.com/sant125/aws-devops.git
+    - repoURL: https://github.com/sant125/gin-tattoo.git
       targetRevision: HEAD
       ref: values
 

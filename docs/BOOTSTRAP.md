@@ -74,6 +74,7 @@ ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret \
 echo "Senha ArgoCD: ${ARGOCD_PASSWORD}"
 ```
 
+##PS.: se quiser ver a carinha do argo e fizer o port-forward, mas tiver no sabor linux (WSL), usa o parmetro --address 0.0.0.0, wsl n conta como localhost no win, tem um ipzinho a parte, dessa forma ele escuta qualquer host.
 ---
 
 ## 4. Criar SealedSecrets antes de aplicar o root app
@@ -91,6 +92,8 @@ helm install sealed-secrets sealed-secrets/sealed-secrets \
 Crie e sele os secrets (substitua os valores reais):
 
 ```bash
+KUBESEAL="kubeseal --controller-name sealed-secrets --controller-namespace kube-system"
+
 # Banco de dados (namespace: database)
 kubectl create secret generic tattoo-db-credentials \
   --namespace=database \
@@ -98,21 +101,21 @@ kubectl create secret generic tattoo-db-credentials \
   --from-literal=password='<senha-forte>' \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | kubeseal --format yaml > manifests/database/sealed-secret.yaml
+  | $KUBESEAL --format yaml > manifests/database/sealed-secret.yaml
 
 # App homolog
 kubectl create secret generic tattoo-db-credentials \
   --namespace=homolog \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | kubeseal --format yaml > manifests/gin-tattoo-homolog/sealed-secret.yaml
+  | $KUBESEAL --format yaml > manifests/gin-tattoo-homolog/sealed-secret.yaml
 
 # App prod
 kubectl create secret generic tattoo-db-credentials \
   --namespace=prod \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | kubeseal --format yaml > manifests/gin-tattoo-prod/sealed-secret.yaml
+  | $KUBESEAL --format yaml > manifests/gin-tattoo-prod/sealed-secret.yaml
 
 git add manifests/ && git commit -m "chore: add sealed secrets" && git push
 ```
@@ -235,6 +238,7 @@ kubectl describe certificaterequest -n prod
 | Sintoma | Causa | Solução |
 |---------|-------|---------|
 | Nós não sobem | EC2NodeClass com role errada | `terraform output karpenter_node_role_name` e atualizar o yaml |
+| `sealed-secrets-controller not found` | kubeseal procura o service name padrão | Use `--controller-name sealed-secrets --controller-namespace kube-system` |
 | `SealedSecret` não descriptografa | Controller de namespace diferente | Recriar o secret no namespace correto |
 | `ErrImagePull` | ECR URL com account ID placeholder | Atualizar image no manifest com a URL real |
 | ArgoCD em `OutOfSync` nos CRDs | CRDs grandes precisam de SSA | `syncOptions: [ServerSideApply=true]` (já configurado em observability-app.yaml) |

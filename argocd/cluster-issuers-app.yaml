@@ -12,7 +12,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/sant125/aws-devops.git
+    repoURL: https://github.com/sant125/gin-tattoo.git
     targetRevision: HEAD
     path: manifests/cert-manager
     directory:
