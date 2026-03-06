@@ -15,10 +15,6 @@ spec:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
-      taints:
-        - key: workload
-          value: spot
-          effect: NoSchedule
       requirements:
         - key: kubernetes.io/arch
           operator: In
@@ -54,10 +50,6 @@ spec:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
         name: default
-      taints:
-        - key: workload
-          value: ondemand
-          effect: NoSchedule
       requirements:
         - key: kubernetes.io/arch
           operator: In
