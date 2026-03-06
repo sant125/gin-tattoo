@@ -8,9 +8,12 @@ loki:
 
   storage:
     type: s3
+    bucketNames:
+      chunks: projetin-loki-chunks
+      ruler: projetin-loki-chunks
+      admin: projetin-loki-chunks
     s3:
       region: us-east-1
-      bucketnames: projetin-loki-chunks
 
   schemaConfig:
     configs:
