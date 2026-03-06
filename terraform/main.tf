@@ -339,20 +339,51 @@ module "eks" {
     support_type = "STANDARD"
   }
 
-  access_entries = {
-    admin = {
-      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-      type          = "STANDARD"
-      policy_associations = {
-        admin = {
-          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = { type = "cluster" }
-        }
-      }
-    }
+  tags = local.tags
+}
+
+# Access entry separado para garantir que exista antes do Helm provider inicializar
+resource "aws_eks_access_entry" "admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  type          = "STANDARD"
+
+  depends_on = [module.eks]
+}
+
+resource "aws_eks_access_policy_association" "admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = data.aws_caller_identity.current.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
   }
 
-  tags = local.tags
+  depends_on = [aws_eks_access_entry.admin]
+}
+
+# ─── SG RULES: comunicação entre nós Karpenter e managed node group ──────────
+# O Karpenter provisiona nós com o cluster SG e o node group usa um SG separado.
+# Sem essas regras, tráfego cross-node (ex: DNS UDP 53) é bloqueado.
+resource "aws_security_group_rule" "cluster_to_node_ingress" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = module.eks.cluster_primary_security_group_id
+  security_group_id        = module.eks.node_security_group_id
+  description              = "Allow all traffic from cluster primary SG (Karpenter nodes) to node SG"
+}
+
+resource "aws_security_group_rule" "node_to_cluster_ingress" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = module.eks.node_security_group_id
+  security_group_id        = module.eks.cluster_primary_security_group_id
+  description              = "Allow all traffic from node SG to cluster primary SG (Karpenter nodes)"
 }
 
 # ─── KARPENTER (IAM + SQS + EventBridge) ─────────────────────────────────────
@@ -410,5 +441,27 @@ resource "helm_release" "karpenter" {
     })
   ]
 
-  depends_on = [module.eks, time_sleep.wait_for_system_node]
+  depends_on = [module.eks, time_sleep.wait_for_system_node, aws_eks_access_policy_association.admin]
+}
+
+# ─── STORAGE CLASS gp3 ───────────────────────────────────────────────────────
+resource "kubernetes_storage_class" "gp3" {
+  metadata {
+    name = "gp3"
+    annotations = {
+      "storageclass.kubernetes.io/is-default-class" = "true"
+    }
+  }
+
+  storage_provisioner    = "ebs.csi.aws.com"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  reclaim_policy         = "Delete"
+  allow_volume_expansion = true
+
+  parameters = {
+    type      = "gp3"
+    encrypted = "true"
+  }
+
+  depends_on = [module.eks]
 }
