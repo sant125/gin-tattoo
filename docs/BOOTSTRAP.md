@@ -85,8 +85,6 @@ helm install sealed-secrets sealed-secrets/sealed-secrets \
 Crie e sele os secrets (substitua os valores reais):
 
 ```bash
-KUBESEAL="kubeseal --controller-name sealed-secrets --controller-namespace kube-system"
-
 # Banco de dados (namespace: database)
 kubectl create secret generic tattoo-db-credentials \
   --namespace=database \
@@ -94,21 +92,24 @@ kubectl create secret generic tattoo-db-credentials \
   --from-literal=password='<senha-forte>' \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | $KUBESEAL --format yaml > manifests/database/sealed-secret.yaml
+  | kubeseal --controller-name sealed-secrets --controller-namespace kube-system --format yaml \
+  > manifests/database/sealed-secret.yaml
 
 # App homolog
 kubectl create secret generic tattoo-db-credentials \
   --namespace=homolog \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | $KUBESEAL --format yaml > manifests/gin-tattoo-homolog/sealed-secret.yaml
+  | kubeseal --controller-name sealed-secrets --controller-namespace kube-system --format yaml \
+  > manifests/gin-tattoo-homolog/sealed-secret.yaml
 
 # App prod
 kubectl create secret generic tattoo-db-credentials \
   --namespace=prod \
   --from-literal=DATABASE_URL='postgres://tattoo_user:<senha>@tattoo-db-rw.database.svc:5432/tattoo?sslmode=disable' \
   --dry-run=client -o yaml \
-  | $KUBESEAL --format yaml > manifests/gin-tattoo-prod/sealed-secret.yaml
+  | kubeseal --controller-name sealed-secrets --controller-namespace kube-system --format yaml \
+  > manifests/gin-tattoo-prod/sealed-secret.yaml
 
 git add manifests/ && git commit -m "chore: add sealed secrets" && git push
 ```
