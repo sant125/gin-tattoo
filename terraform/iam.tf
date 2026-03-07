@@ -131,7 +131,7 @@ resource "aws_iam_role" "github_actions" {
         }
         StringLike = {
           # Escopo restrito ao repositório da aplicação
-          "token.actions.githubusercontent.com:sub" = "repo:sant125/gin-tattoo:*"
+          "token.actions.githubusercontent.com:sub" = "repo:sant125/app-gingo:*"
         }
       }
     }]
