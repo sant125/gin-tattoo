@@ -238,10 +238,14 @@ kubectl describe certificaterequest -n prod
 | Sintoma | Causa | Solução |
 |---------|-------|---------|
 | Nós não sobem | EC2NodeClass com role errada | `terraform output karpenter_node_role_name` e atualizar o yaml |
+| Nós demoram 10-15min pra entrar | `map_public_ip_on_launch` desativado | Já corrigido no Terraform — subnets públicas com IP automático |
+| DNS timeout entre pods em nós diferentes | SGs distintos entre Karpenter nodes e managed node group | Já corrigido no Terraform com `aws_security_group_rule` cross-SG |
 | `sealed-secrets-controller not found` | kubeseal procura o service name padrão | Use `--controller-name sealed-secrets --controller-namespace kube-system` |
 | `SealedSecret` não descriptografa | Controller de namespace diferente | Recriar o secret no namespace correto |
-| `ErrImagePull` | ECR URL com account ID placeholder | Atualizar image no manifest com a URL real |
+| `ErrImagePull` | Imagem não publicada no ECR ainda | Rodar o pipeline CI no repo gin-tattoo para buildar e publicar |
 | ArgoCD em `OutOfSync` nos CRDs | CRDs grandes precisam de SSA | `syncOptions: [ServerSideApply=true]` (já configurado em observability-app.yaml) |
+| `tattoo-database` falha com `x509: certificate signed by unknown authority` | Webhook do CNPG ainda inicializando | Aguardar 1-2min e forçar sync: `kubectl patch application tattoo-database -n argocd --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'` |
 | CloudNativePG não conecta ao S3 | IAM role dos nós sem permissão no bucket | Verificar a policy `AmazonEC2ContainerRegistryReadOnly` e S3 do node role |
 | Loki não grava no S3 | IRSA ARN não atualizado no values.yaml | `terraform output loki_role_arn` e atualizar `manifests/loki/values.yaml` |
 | GH Actions ECR push negado | OIDC trust policy com sub errado | Verificar se o `repo:sant125/gin-tattoo:*` na trust policy bate com o repositório que dispara o workflow |
+| `helm_release.karpenter` falha com `cluster unreachable` | Access entry do root não existe antes do Helm inicializar | Já corrigido no Terraform com `aws_eks_access_entry` como resource separado com `depends_on` |
