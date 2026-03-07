@@ -67,6 +67,8 @@ As réplicas do CloudNativePG cobrem o escalonamento de leitura. Para o workload
 
 Alguns pontos que levaram tempo real para resolver durante o bootstrap inicial:
 
+- **Primeira análise SonarCloud já retornou issues reais**: na primeira execução do Quality Gate, o scanner identificou container rodando como root e `COPY . .` sem `.dockerignore` como riscos médios de segurança, além de secret expandido inline em bloco `run:`. Os três foram corrigidos no mesmo ciclo — user não-root no Dockerfile, `.dockerignore` cobrindo arquivos sensíveis e secret movido para variável de ambiente antes de ser referenciado no shell. Zero retrabalho depois da PR ser mergeada.
+
 - **IRSA em addons gerenciados do EKS**: vincular uma role IAM customizada a um addon (ex: EBS CSI driver) exige configurar `service_account_role_arn` no addon e garantir que a trust policy da role referencie o OIDC provider do cluster. O módulo não faz isso automaticamente ao receber uma role customizada — a trust policy precisa bater exatamente ou o `AssumeRoleWithWebIdentity` falha silenciosamente.
 - **Karpenter >= 1.2.0 para Kubernetes 1.32**: versões abaixo da 1.2 entram em panic no startup com uma verificação de compatibilidade contra a versão do API server. Nenhum aviso durante o `helm install` — só aparece quando o pod sobe.
 - **`map_public_ip_on_launch` em subnets públicas**: instâncias EC2 de managed node groups em subnets públicas não recebem IP público por padrão a menos que isso esteja explicitamente configurado na subnet. Sem isso, o kubelet não consegue alcançar o endpoint público do EKS e o nó nunca entra no cluster.
