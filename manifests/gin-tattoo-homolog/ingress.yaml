@@ -10,10 +10,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - staging.example.com
+        - homolog.aladiatattoo.com.br
       secretName: gin-tattoo-homolog-tls
   rules:
-    - host: staging.example.com
+    - host: homolog.aladiatattoo.com.br
       http:
         paths:
           - path: /

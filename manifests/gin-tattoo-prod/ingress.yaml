@@ -10,10 +10,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - api.example.com
+        - aladiatattoo.com.br
       secretName: gin-tattoo-prod-tls
   rules:
-    - host: api.example.com
+    - host: aladiatattoo.com.br
       http:
         paths:
           - path: /
