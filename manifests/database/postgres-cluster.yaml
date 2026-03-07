@@ -4,7 +4,12 @@ metadata:
   name: tattoo-db
   namespace: database
 spec:
-  instances: 3   # 1 primary + 2 hot standby
+  # Portfolio: 1 instância para reduzir custo (~$60/mês por nó on-demand t3.medium).
+  # Em produção com carga real, aumentar para 3 (1 primary + 2 hot standby) ou migrar
+  # para RDS Multi-AZ — replicação async + sync standby sem operação manual, ideal para
+  # times sem SRE dedicado. CNPG exige você mesmo gerenciar failover, monitoramento e
+  # atualizações do operator; RDS abstrai tudo isso com SLA de 99.95%.
+  instances: 1
 
   postgresql:
     parameters:
