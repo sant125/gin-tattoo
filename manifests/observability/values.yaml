@@ -89,7 +89,11 @@ nodeExporter:
 kubeStateMetrics:
   enabled: true
 
-# ── Desabilitados (não usamos etcd/scheduler gerenciados pelo EKS) ────────────
+# ── Componentes gerenciados pelo EKS — não acessíveis para scrape ────────────
+# No EKS, control plane (etcd, scheduler, controller-manager) roda na conta AWS
+# e não expõe endpoints de métricas para o cluster do usuário. kubeProxy também
+# é gerenciado e não tem endpoint acessível. Manter habilitado gera targets
+# permanentemente DOWN no Prometheus e dashboards vazios no Grafana.
 kubeEtcd:
   enabled: false
 
@@ -97,4 +101,7 @@ kubeControllerManager:
   enabled: false
 
 kubeScheduler:
+  enabled: false
+
+kubeProxy:
   enabled: false
