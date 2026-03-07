@@ -1,6 +1,8 @@
-# aws-devops
+# gin-tattoo
 
 Infraestrutura para o [gin-tattoo](https://github.com/sant125/gin-tattoo) — REST API em Go rodando em EKS com GitOps, observabilidade completa e TLS automático.
+
+Reproduzível do zero: `terraform apply` + `kubectl apply -f argocd/root-app.yaml` e o ArgoCD reconcilia todo o estado do cluster.
 
 ## Arquitetura
 
@@ -19,12 +21,13 @@ Infraestrutura para o [gin-tattoo](https://github.com/sant125/gin-tattoo) — RE
 | Camada | Tecnologia |
 |--------|-----------|
 | App | Go 1.22 + Gin, `/metrics` (Golden Signals), `/health`, Swagger |
-| Infra | Terraform — VPC, EKS 1.31, Karpenter (Spot + OD), ECR, S3 |
+| Infra | Terraform — VPC, EKS 1.32, Karpenter (Spot + On-demand), ECR, S3 |
 | CI/CD | GitHub Actions (OIDC → ECR, SonarCloud, OWASP ZAP) → ArgoCD |
 | Banco | CloudNativePG — 3 instâncias HA, backup S3 |
-| Observability | kube-prometheus-stack + Loki + Promtail |
+| Observabilidade | kube-prometheus-stack + Loki + Promtail |
 | Secrets | Bitnami SealedSecrets |
-| TLS / Ingress | Traefik + NLB + cert-manager (Let's Encrypt) |
+| Ingress / TLS | Traefik + NLB + cert-manager (Let's Encrypt) |
+| DNS | Cloudflare (proxy gratuito) — domínio apex direto no NLB |
 | Segurança | Network Policies, govulncheck, Trivy, OWASP ZAP, SonarCloud |
 
 ## Custo estimado (us-east-1)
@@ -40,12 +43,48 @@ Infraestrutura para o [gin-tattoo](https://github.com/sant125/gin-tattoo) — RE
 
 Sem NAT Gateway (subnets públicas) — economia de ~$130/mês por AZ. Sem RDS — ~$90/mês a menos vs db.t3.medium Multi-AZ.
 
+## Decisões de design
+
+**Karpenter em vez de Cluster Autoscaler**
+O Karpenter provisiona nós diretamente via API do EC2, sem precisar de node groups pré-definidos por tipo de instância. O NodePool `spot` cobre workloads stateless (API) e o `on-demand` cobre os stateful (banco). As políticas de disruption consolidam nós subutilizados automaticamente. Para um setup com foco em FinOps, essa é a abordagem cloud-native atual. Em produção com SLAs mais rígidos, o caminho natural seria combinar instâncias reservadas para a baseline com o Karpenter gerenciando o burst.
+
+**CloudNativePG em vez de RDS**
+O CloudNativePG roda dentro do cluster com 3 instâncias HA (1 primary, 2 replicas) e expõe métricas completas do PostgreSQL para o Prometheus nativamente — sem exporter externo. Isso permite que o mesmo stack de observabilidade cubra aplicação e banco em um único lugar, o que faz diferença para times com práticas de SRE. O trade-off é o overhead operacional, que é maior do que no RDS. Para times sem DBA ou SRE dedicado, o RDS Multi-AZ ainda é a escolha certa — o custo é justificado. Os pods do banco usam `nodeSelector: capacity-type: ondemand` e regras de pod anti-affinity para garantir que cada réplica fique em um nó diferente, preservando o isolamento por domínio de falha e a tolerância a partição esperada de um sistema CP.
+
+**Traefik em vez de ingress-nginx**
+O ingress-nginx acumulou CVEs críticas nos últimos ciclos e sua trajetória de manutenção futura é incerta. O Traefik é ativamente mantido, expõe seu próprio endpoint de métricas para o Prometheus sem exporter separado e integra nativamente com cert-manager para os desafios do Let's Encrypt. Em relação ao AWS Load Balancer Controller: o LBC roteia tráfego via ALB/NLB com custos de ingestão de log por requisição que escalam com o volume. O Traefik mantém o tráfego intra-cluster até sair pelo NLB, sem overhead adicional de logging na AWS.
+
+**Cloudflare em vez de Route53 para DNS**
+O plano gratuito do Cloudflare faz proxy do tráfego pela edge deles, adicionando proteção DDoS e cache sem custo. O domínio apex aponta diretamente para o DNS name do NLB — o NLB já distribui entre todas as subnets da região, então a disponibilidade é tratada na camada AWS sem precisar de weighted routing ou health checks no nível de DNS.
+
+**IRSA em vez de EKS Pod Identity**
+O Pod Identity requer um DaemonSet de agente rodando no cluster antes que qualquer workload consiga assumir uma role IAM. Isso cria uma dependência de bootstrap: não dá pra instalar o agente sem um cluster funcionando, e os workloads não conseguem autenticar sem o agente. O IRSA usa o OIDC provider do cluster — sem agente in-cluster, a confiança é resolvida diretamente entre o IAM e o control plane do EKS.
+
+**Sem Redis**
+As réplicas do CloudNativePG cobrem o escalonamento de leitura. Para o workload atual não existe padrão de session state ou invalidação de cache que justifique adicionar outro componente stateful para operar.
+
+## Lições aprendidas
+
+Alguns pontos que levaram tempo real para resolver durante o bootstrap inicial:
+
+- **IRSA em addons gerenciados do EKS**: vincular uma role IAM customizada a um addon (ex: EBS CSI driver) exige configurar `service_account_role_arn` no addon e garantir que a trust policy da role referencie o OIDC provider do cluster. O módulo não faz isso automaticamente ao receber uma role customizada — a trust policy precisa bater exatamente ou o `AssumeRoleWithWebIdentity` falha silenciosamente.
+- **Karpenter >= 1.2.0 para Kubernetes 1.32**: versões abaixo da 1.2 entram em panic no startup com uma verificação de compatibilidade contra a versão do API server. Nenhum aviso durante o `helm install` — só aparece quando o pod sobe.
+- **`map_public_ip_on_launch` em subnets públicas**: instâncias EC2 de managed node groups em subnets públicas não recebem IP público por padrão a menos que isso esteja explicitamente configurado na subnet. Sem isso, o kubelet não consegue alcançar o endpoint público do EKS e o nó nunca entra no cluster.
+- **Bootstrap do access entry do root**: o provider Helm do Terraform autentica no cluster durante a inicialização do provider, antes de qualquer recurso ser aplicado. Se o access entry IAM do caller ainda não existir, o provider falha com `cluster unreachable` mesmo com o cluster saudável. Criar o access entry como resource independente com `depends_on` explícito no `helm_release` resolve o problema de ordenação de forma permanente.
+- **Port-forward no WSL**: o `kubectl port-forward` faz bind no loopback do WSL por padrão. Para acessar pelo browser do Windows, use `--address 0.0.0.0` e o IP do WSL via `hostname -I`.
+
+## Roadmap
+
+- **HA multi-região**: Route53 health checks + latency-based routing entre duas regiões, com os endpoints do NLB como targets. Replicação lógica do CloudNativePG como caminho de dados entre regiões.
+- **Istio service mesh**: mTLS entre serviços, políticas de tráfego granulares e tracing distribuído — faz sentido conforme o número de serviços cresce.
+- **VPC CNI prefix delegation**: aumenta a densidade de pods em instâncias menores sem trocar o tipo, relevante se o node group system `t3.small` virar gargalo.
+
 ## Bootstrap
 
 Ver [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
 
 ```bash
-terraform -chdir=terraform init && terraform -chdir=terraform apply
+terraform init && terraform apply
 kubectl apply -f argocd/root-app.yaml
 ```
 
@@ -53,7 +92,7 @@ kubectl apply -f argocd/root-app.yaml
 
 ```
 .
-├── terraform/           # VPC, EKS, Karpenter, ECR, S3, IAM (OIDC GH Actions, Loki IRSA)
+├── terraform/           # VPC, EKS, Karpenter, ECR, S3, IAM (OIDC GH Actions, IRSA)
 ├── manifests/
 │   ├── database/        # CloudNativePG cluster (3 instâncias)
 │   ├── gin-tattoo-homolog/
@@ -61,8 +100,8 @@ kubectl apply -f argocd/root-app.yaml
 │   ├── loki/            # Loki monolithic (S3) + Promtail
 │   ├── network-policies/
 │   ├── karpenter/       # NodePool + EC2NodeClass
-│   └── observability/   # kube-prometheus-stack, dashboard, alertas
-├── argocd/              # root app + Applications individuais
+│   └── observability/   # kube-prometheus-stack, dashboards, alertas
+├── argocd/              # App of Apps + Applications individuais
 └── docs/
     ├── BOOTSTRAP.md
     └── diagrams/
