@@ -60,6 +60,17 @@ O plano gratuito do Cloudflare faz proxy do tráfego pela edge deles, adicionand
 **IRSA em vez de EKS Pod Identity**
 O Pod Identity requer um DaemonSet de agente rodando no cluster antes que qualquer workload consiga assumir uma role IAM. Isso cria uma dependência de bootstrap: não dá pra instalar o agente sem um cluster funcionando, e os workloads não conseguem autenticar sem o agente. O IRSA usa o OIDC provider do cluster — sem agente in-cluster, a confiança é resolvida diretamente entre o IAM e o control plane do EKS.
 
+**SonarCloud free vs SonarQube self-hosted vs plano pago**
+O plano free do SonarCloud analisa apenas a branch principal. Branches de feature e homolog não são analisadas — o pipeline da branch `developer` pula o Sonar e vai direto pro build/deploy. Em produção isso é uma limitação real: code smells e vulnerabilidades introduzidos em feature branches só são detectados depois do merge na main.
+
+Há três caminhos para resolver isso:
+
+- **SonarCloud Team (~$10/mês por desenvolvedor)**: análise de todas as branches com PR decoration, sem infraestrutura pra operar. Faz sentido para times pequenos onde o custo operacional de manter outro serviço não compensa.
+- **SonarQube Community (self-hosted, gratuito)**: roda dentro do cluster, análise ilimitada de branches. Requer ~4GB RAM e PostgreSQL dedicado — adiciona ~$60-80/mês de custo de infra (nó on-demand t3.large + storage). O overhead operacional (upgrades, backup, disponibilidade) cai pro time. Faz sentido se o time já tem capacidade SRE e quer controle total sobre os dados de análise.
+- **Runner self-hosted + SonarCloud free**: o runner dentro do cluster tem acesso direto ao ECR via IRSA, elimina o `configure-aws-credentials` e reduz o tempo de build por cachear layers localmente. O Sonar ainda fica limitado à main, mas o custo do runner é absorvido pelo cluster existente — sem nó adicional se houver capacidade disponível nos nós on-demand.
+
+Para o contexto atual (portfolio, repo público), o SonarCloud free cobre o essencial: quality gate bloqueando deploys com CVEs críticos ou code smells graves na branch principal.
+
 **Sem Redis**
 As réplicas do CloudNativePG cobrem o escalonamento de leitura. Para o workload atual não existe padrão de session state ou invalidação de cache que justifique adicionar outro componente stateful para operar.
 
