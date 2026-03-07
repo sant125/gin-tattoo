@@ -40,6 +40,8 @@ spec:
             serviceMonitor:
               enabled: true
               namespace: observability
+            service:
+              enabled: true
 
         resources:
           requests:
