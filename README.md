@@ -71,6 +71,9 @@ Há três caminhos para resolver isso:
 
 Para o contexto atual (portfolio, repo público), o SonarCloud free cobre o essencial: quality gate bloqueando deploys com CVEs críticos ou code smells graves na branch principal.
 
+**Métricas HTTP no Traefik vs na aplicação**
+O Traefik expõe automaticamente métricas de request por rota — latência, throughput e status codes (golden signals) — sem que a aplicação precise instrumentar nada. O ServiceMonitor do Traefik já faz o scrape e os dados aparecem no Prometheus. A aplicação expor um endpoint `/metrics` próprio faz sentido apenas para métricas de domínio que o proxy não conhece: número de agendamentos criados, conversão por artista, tempo de query no banco. Para um time avaliando onde investir esforço de instrumentação, cobrir os golden signals via Traefik primeiro e só depois adicionar métricas de negócio na app é a ordem natural.
+
 **Sem Redis**
 As réplicas do CloudNativePG cobrem o escalonamento de leitura. Para o workload atual não existe padrão de session state ou invalidação de cache que justifique adicionar outro componente stateful para operar.
 
