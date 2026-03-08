@@ -74,7 +74,3 @@ spec:
       port: 80
       targetPort: 8080
   type: ClusterIP
-  template:
-    spec:
-      containers:
-        - image: 091855124125.dkr.ecr.us-east-1.amazonaws.com/projetin-app:6f1b7e7
