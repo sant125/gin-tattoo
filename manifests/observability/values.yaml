@@ -37,6 +37,10 @@ grafana:
   enabled: true
   adminPassword: "${GRAFANA_ADMIN_PASSWORD}"  # injetar via SealedSecret
 
+  # RWO PVC não suporta RollingUpdate — dois pods não podem montar o mesmo volume
+  deploymentStrategy:
+    type: Recreate
+
   persistence:
     enabled: true
     storageClassName: gp3
