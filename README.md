@@ -34,19 +34,30 @@ Reproduzível do zero: `terraform apply` + `kubectl apply -f argocd/root-app.yam
 
 | Recurso | $/mês |
 |---------|-------|
-| EKS control plane | $73 |
-| Nós on-demand (2× t3.medium) | ~$60 |
-| Nós Spot (2× t3.medium) | ~$15 |
-| CloudNativePG storage (3× 20Gi gp3) | ~$5 |
+| EKS control plane | ~$72 |
+| Nó system — t3.small on-demand (managed, taintado) | ~$15 |
+| Nó infra — t3a.xlarge on-demand (Karpenter) | ~$108 |
+| Nó app — t3.medium spot (Karpenter, quando há workload) | ~$10 |
+| CloudNativePG storage (20Gi gp3) + EBS volumes | ~$5 |
+| NLB (Traefik) | ~$16 |
 | S3 + ECR | ~$3 |
-| **Total** | **~$156/mês** |
+| **Total** | **~$229/mês** |
 
 Sem NAT Gateway (subnets públicas) — economia de ~$130/mês por AZ. Sem RDS — ~$90/mês a menos vs db.t3.medium Multi-AZ.
+
+O nó on-demand de infra (t3a.xlarge) é o maior custo isolado — ele hospeda toda a camada de observabilidade, ArgoCD, cert-manager e Traefik. Em produção com demanda estável, uma Reserved Instance de 1 ano nesse tipo cai para ~$65/mês.
 
 ## Decisões de design
 
 **Karpenter em vez de Cluster Autoscaler**
-O Karpenter provisiona nós diretamente via API do EC2, sem precisar de node groups pré-definidos por tipo de instância. O NodePool `spot` cobre workloads stateless (API) e o `on-demand` cobre os stateful (banco). As políticas de disruption consolidam nós subutilizados automaticamente. Para um setup com foco em FinOps, essa é a abordagem cloud-native atual. Em produção com SLAs mais rígidos, o caminho natural seria combinar instâncias reservadas para a baseline com o Karpenter gerenciando o burst.
+O Karpenter provisiona nós diretamente via API do EC2, sem node groups pré-definidos. Você declara requisitos de CPU, memória e capacidade — ele escolhe o tipo de instância e provisiona. Isso permite dois padrões distintos no mesmo cluster:
+
+- **NodePool `spot`** — cobre workloads stateless (API gin-tattoo). Spot é ~70-80% mais barato que on-demand e o Karpenter substitui nós interrompidos automaticamente. Escalar de 2 para 20 réplicas da API não move a agulha no custo de infra — o preço cresce na camada de workload (spot), não na camada de plataforma.
+- **NodePool `on-demand`** — cobre workloads stateful (banco, Loki, Traefik, Prometheus). Spot não é adequado aqui: uma interrupção num nó com o banco primário ou com o Prometheus pode perder dados ou criar janelas cegas na observabilidade.
+
+As políticas de consolidação (`WhenEmptyOrUnderutilized` no spot, `WhenEmpty` no on-demand) garantem que nós subutilizados sejam drenados e removidos automaticamente — sem intervenção manual e sem pagar por capacidade ociosa.
+
+Em produção com SLAs mais rígidos, o caminho natural é combinar Reserved Instances para a baseline do nó de infra com o Karpenter gerenciando o burst de workload em spot.
 
 **CloudNativePG em vez de RDS**
 O CloudNativePG roda dentro do cluster com 3 instâncias HA (1 primary, 2 replicas) e expõe métricas completas do PostgreSQL para o Prometheus nativamente — sem exporter externo. Isso permite que o mesmo stack de observabilidade cubra aplicação e banco em um único lugar, o que faz diferença para times com práticas de SRE. O trade-off é o overhead operacional, que é maior do que no RDS. Para times sem DBA ou SRE dedicado, o RDS Multi-AZ ainda é a escolha certa — o custo é justificado. Os pods do banco usam `nodeSelector: capacity-type: ondemand` e regras de pod anti-affinity para garantir que cada réplica fique em um nó diferente, preservando o isolamento por domínio de falha e a tolerância a partição esperada de um sistema CP.
