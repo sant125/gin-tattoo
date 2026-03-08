@@ -181,8 +181,8 @@ data:
           },
           "targets": [
             {
-              "expr": "topk(8, sum(rate(http_requests_total{namespace=\"prod\"}[5m])) by (handler))",
-              "legendFormat": "{{handler}}"
+              "expr": "topk(8, sum(rate(http_requests_total{namespace=\"prod\"}[5m])) by (path))",
+              "legendFormat": "{{path}}"
             }
           ]
         }
