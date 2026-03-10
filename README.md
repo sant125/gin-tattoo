@@ -20,7 +20,7 @@ Reproduzível do zero: `terraform apply` + `kubectl apply -f argocd/root-app.yam
 
 | Camada | Tecnologia |
 |--------|-----------|
-| App | Go 1.22 + Gin, `/metrics` (Golden Signals), `/health`, Swagger |
+| App | Go 1.25 + Gin, `/metrics` (Golden Signals), `/health`, Swagger |
 | Infra | Terraform — VPC, EKS 1.32, Karpenter (Spot + On-demand), ECR, S3 |
 | CI/CD | GitHub Actions (OIDC → ECR, SonarCloud, OWASP ZAP) → ArgoCD |
 | Banco | CloudNativePG — 3 instâncias HA, backup S3 |
